@@ -78,12 +78,44 @@
         ctx.fillText(`Player 2: ${score2}`, canvas.width - 150, 20);
     }
 
-    function update() {
-        if (ballX + ballDX > canvas.width-ballRadius || ballX + ballDX < ballRadius) {
-            ballDX = -ballDX;
-            socket.emit('ballUpdate', { x: ballX, y: ballY, dx: ballDX, dy: ballDY });
+    function checkPaddleCollision() {
+        let hitPaddle = false;
+        // Ball hits the left paddle
+        if (ballX - ballRadius < paddleWidth && ballY > y1 && ballY < y1 + paddleHeight) {
+            hitPaddle = true;
         }
-        if (ballY + ballDY > canvas.height-ballRadius || ballY + ballDY < ballRadius) ballDY = -ballDY;
+        // Ball hits the right paddle
+        if (ballX + ballRadius > canvas.width - paddleWidth && ballY > y2 && ballY < y2 + paddleHeight) {
+            hitPaddle = true;
+        }
+        return hitPaddle;
+    }
+
+    function update() {
+        // Ball and paddle collision
+        if (checkPaddleCollision()) {
+            ballDX = -ballDX; // Reverse ball direction
+        }
+
+        // Ball goes out of bounds
+        if (ballX + ballDX > canvas.width-ballRadius || ballX + ballDX < ballRadius) {
+            // Player 2 scores
+            if (ballX > canvas.width / 2) score1 += 1;
+            // Player 1 scores
+            else score2 += 1;
+            
+            // Reset ball to center
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            ballDX = -ballDX; // Send the ball towards the player who scored
+
+            // Emit score update
+            socket.emit('scoreUpdate', { score1: score1, score2: score2 });
+        }
+
+        if (ballY + ballDY > canvas.height-ballRadius || ballY + ballDY < ballRadius) {
+            ballDY = -ballDY; // Ball hits top or bottom wall
+        }
 
         ballX += ballDX;
         ballY += ballDY;
