@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multiplayer Pong</title>
+<style>
+    body, html { height: 100%; margin: 0; }
+    canvas { background: #000; display: block; margin: auto; }
+</style>
+</head>
+<body>
+<canvas id="pongCanvas"></canvas>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const canvas = document.getElementById('pongCanvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = 600;
+    canvas.height = 400;
+
+    let paddleHeight = 60, paddleWidth = 10, ballRadius = 6;
+    let y1 = canvas.height / 2 - paddleHeight / 2, y2 = y1;
+    let ballX = canvas.width / 2, ballY = canvas.height / 2;
+    let ballDX = 2, ballDY = -2;
+    let score1 = 0, score2 = 0;
+
+    const socket = io();
+
+    document.addEventListener('keydown', (event) => {
+        const key = event.key;
+        const step = 20;
+        if (key === 'ArrowUp' && y1 > 0) {
+            y1 -= step;
+            socket.emit('paddleMove', { paddle: 'left', y: y1 });
+        } else if (key === 'ArrowDown' && y1 < canvas.height - paddleHeight) {
+            y1 += step;
+            socket.emit('paddleMove', { paddle: 'left', y: y1 });
+        }
+    });
+
+    socket.on('paddleMove', (data) => {
+        if (data.paddle === 'left') y2 = data.y;
+        else y1 = data.y;
+    });
+
+    socket.on('ballUpdate', (data) => {
+        ballX = data.x;
+        ballY = data.y;
+        ballDX = data.dx;
+        ballDY = data.dy;
+    });
+
+    socket.on('scoreUpdate', (data) => {
+        score1 = data.score1;
+        score2 = data.score2;
+    });
+
+    function drawPaddle(y, isLeft) {
+        ctx.beginPath();
+        ctx.rect(isLeft ? 0 : canvas.width - paddleWidth, y, paddleWidth, paddleHeight);
+        ctx.fillStyle = '#FFF';
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    function drawBall() {
+        ctx.beginPath();
+        ctx.arc(ballX, ballY, ballRadius, 0, Math.PI*2);
+        ctx.fillStyle = '#FFF';
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    function drawScore() {
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#FFF';
+        ctx.fillText(`Player 1: ${score1}`, 100, 20);
+        ctx.fillText(`Player 2: ${score2}`, canvas.width - 150, 20);
+    }
+
+    function update() {
+        if (ballX + ballDX > canvas.width-ballRadius || ballX + ballDX < ballRadius) {
+            ballDX = -ballDX;
+            socket.emit('ballUpdate', { x: ballX, y: ballY, dx: ballDX, dy: ballDY });
+        }
+        if (ballY + ballDY > canvas.height-ballRadius || ballY + ballDY < ballRadius) ballDY = -ballDY;
+
+        ballX += ballDX;
+        ballY += ballDY;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawPaddle(y1, true);
+        drawPaddle(y2, false);
+        drawBall();
+        drawScore();
+
+        requestAnimationFrame(update);
+    }
+
+    update();
+</script>
+</body>
+</html>
